@@ -6,6 +6,7 @@
 #include "tworld.h"
 
 float TFood::r = 10.0f;
+int TFood::counter = 0;
 
 void _Display()
 {
@@ -36,7 +37,7 @@ void _MouseFunction(int button, int state, int x, int y)
     case GLUT_MIDDLE_BUTTON:
         break;
     case GLUT_RIGHT_BUTTON:
-        new TFood( TVector2d(x - WRLD_W2, -(y - WRLD_H2)) );
+        TWorld::get()->newFood( TVector2d(x - WRLD_W2, -(y - WRLD_H2)) );
         break;
     };
 }
@@ -48,6 +49,10 @@ void _KeyFunction(unsigned char key, int x, int y)
         case 'q' :
         case 'Q' :
             exit(0); break;
+         break;
+        case 's' :
+        case 'S' :
+            TWorld::get()->ShowStat(); break;
          break;
     }
 }
@@ -75,6 +80,9 @@ int main(int argcp, char **argv)
     glutTimerFunc(40,_TimerFunction,1);
     glutMouseFunc(_MouseFunction);
     glutKeyboardFunc(_KeyFunction);
+
+    for (int i(0); i < 1000; i++)
+        new TPS( TVector2d(0, 0) );
 
     glutMainLoop();
 

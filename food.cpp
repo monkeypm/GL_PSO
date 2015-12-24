@@ -8,7 +8,8 @@
 
 TFood::TFood(const TVector2d &ip): p(ip), weight(MAX_WEIGHT)
 {
-    TWorld::get()->getFood().push_back(shared_ptr<TFood>(this)); // кидаємо себе в World
+    //TWorld::get()->getFood().push_back(shared_ptr<TFood>(this)); // кидаємо себе в World
+    ++counter;
 
     clog << "TFood(" << ip.x << "," << ip.y << ")" << endl;
 }

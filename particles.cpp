@@ -38,11 +38,11 @@ TPS::TPS(const TVector2d &icenter):
     for(int i(0); i < MIN_COLONY_SIZE + rand() % (MAX_COLONY_SIZE - MIN_COLONY_SIZE); i++)
         colony.push_back(TParticle(this));
 
-    TWorld::get()->getPS().push_back(shared_ptr<TPS>(this)); // кидаємо себе в World
+    TWorld::get()->getPS().push_front(shared_ptr<TPS>(this)); // кидаємо себе в World
 
     // запускаємо поток, в якому житиме рой частинок
     proc = thread([this]() {
-                while(true)
+                while(TWorld::get()->getPSLocker())
                 {
                     this->update();
                     this_thread::sleep_for(chrono::milliseconds(20));
@@ -54,7 +54,9 @@ TPS::TPS(const TVector2d &icenter):
 
 TPS::~TPS()
 {
+    //TWorld::get()->lockPS();
     clog << "~TPS " << center.x << "," << center.y << endl;
+   // TWorld::get()->unlockPS();
 }
 
 void TPS::render()
@@ -70,39 +72,33 @@ void TPS::render()
 void TPS::update()
 {
 
-    auto food = TWorld::get()->getFood();
+    //auto food = TWorld::get()->getFood();
     if (! target)
     {
-       // шукаємо не заняту кормушку
-        for (auto f: food)
-        {
-            // перевірка чи є патікли над кормушкою
-            if(find_if(colony.begin(), colony.end(),
-                   [&f](TParticle &i) { return f->isPointInside(i.p); } ) != colony.end())
-            {
-
-                // пробуєм заборонити іншим потокам хавати з кормушки
-                if (f->tryLock())
-                {
-                    target = f;
-                    break;
-                }
-            }
-
-        }
+        shared_ptr<TFood> f(nullptr);
+        // перевірка чи є патікли над кормушкою
+        if ((f = TWorld::get()->findFoodForColony(*this)))
+            target = f;
     }
     else
     {
         // їмо хавку
         for (TParticle &i: colony)
         {
+            if (!target)
+                break;
+
             if (target->isPointInside(i.p))
                 target->eat(0.02);
 
             // залишаємо порожню кормушку
             if (target->isPure())
             {
+                //TFood * target_tmp = target.get();
+               // target. reset();
+                TWorld::get()->killFood(target);
                 target = nullptr;
+
                 break;
             }
         }

@@ -5,13 +5,14 @@
 #include <GL/gl.h>
 #include <GL/glut.h>
 #include <math.h>
-#include <list>
+#include <forward_list>
 #include <memory>
 #include <iostream>
 #include <algorithm>
 #include <thread>
 #include <chrono>
 #include <mutex>
+#include <atomic>
 
 #define WRLD_W 600
 #define WRLD_H 600
@@ -84,7 +85,9 @@ class TParticle
     int dir_cnt; // лічильник зміни напряму
 
     TParticle(TPS *ips);
-
+public:
+    TVector2d getP() { return p; }
+    TVector2d getC() { return c; }
     void update();
 };
 
@@ -104,6 +107,7 @@ public:
 
     TVector2d getCenter() const { return center; }
     TFood * getTarget() const { return target.get(); }
+    vector<TParticle> & getColony() { return colony; }
 
     void render();
     void update();
@@ -114,6 +118,7 @@ class TFood
 {
 protected:
     static float r; // радіус кормушки
+    static int counter; // лічильник для статистики
 
     TVector2d p; // місцезнаходження кормушки
     float weight;  // маса їжі
@@ -127,6 +132,7 @@ public:
     void eat(float dmg) { weight -= dmg; }
     TVector2d getP() const { return p; }
     int getWeight() const { return weight; }
+    static int getCounter() { return counter; }
 
     bool tryLock() { return mut_lock.try_lock(); }
 
@@ -140,18 +146,32 @@ class TWorld
     static TWorld * world;
     TWorld();
 
-    list<shared_ptr<TFood> > food; // список їжі
-    list<shared_ptr<TPS> > ps; // список роїв частинок
+    forward_list<shared_ptr<TFood> > food; // список їжі
+    atomic_flag food_locker; // локер для роботи з списком кормушок
+    forward_list<shared_ptr<TPS> > ps; // список роїв частинок
+    atomic_bool ps_locker; // локер, що рубає потоки
 public:
     ~TWorld();
 
     static TWorld * get();
     void render();
     void update();
-    list<shared_ptr<TPS> > &getPS() {  return ps; }
-    list<shared_ptr<TFood> > &getFood() { return food; }
 
-    void ShowStat() { /*printf("planet.health: %d  asteroids: %d\n", planet.getHealth(), asteroids.size()); */ }
+    void newFood(const TVector2d &ip);
+    void killFood(const shared_ptr<TFood> &f);
+
+    inline void lockFood() { while (food_locker.test_and_set(std::memory_order_acquire)) this_thread::sleep_for(chrono::milliseconds(1)); }
+    inline void unlockFood() { food_locker.clear(std::memory_order_release); }
+
+    forward_list<shared_ptr<TPS> > &getPS() {  return ps; }
+    bool getPSLocker() { return ps_locker; }
+
+    shared_ptr<TFood> findFoodForColony(TPS &ips);
+
+    void ShowStat()
+    {
+        clog << "TPS cnt: " << distance(ps.begin(), ps.end()) << "; Food cnt " << TFood::getCounter() << ";" << endl;
+    }
 };
 
 #endif // TWORLD_H
